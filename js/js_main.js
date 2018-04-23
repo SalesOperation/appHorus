@@ -127,7 +127,7 @@ $(document).ready(function(e){
                 });
             });
         }else{ 
-            
+
             $("#page").show();
             $("#dvHead").show();
         	$("#dvMain").show(); 
@@ -236,10 +236,11 @@ function reloadkpi(){
     var pros_home_prom = 0;
     var vendedor = vUser;
 
+    var anomes = getYearMoth(0);
 
     $.ajax({
         type: 'POST',
-        data: {m:102, ui:vUser},        
+        data: {m:102, ui:vUser, f:anomes},        
         dataType:'json',
         url: ws_url,
         beforeSend: function(){
