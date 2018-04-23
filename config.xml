@@ -13,6 +13,7 @@
   <preference name= "SplashScreenDelay" value= "3000" />
   <preference name="FadeSplashScreen" value="true"/>
   <preference name="ShowSplashScreenSpinner" value="false"/>
+   <preference name="FadeSplashScreenDuration" value="500"/>
   
   <!--<plugin name="cordova-plugin-battery-status" source="npm" spec="~1.1.1"/>
   <plugin name="cordova-plugin-camera" source="npm" spec="~2.1.1"/>
@@ -52,8 +53,8 @@
     <splash src="res/splash/android/mdpi-splash.jpg" density="mdpi"/>
     <splash src="res/splash/android/hdpi-splash.jpg" density="hdpi"/>
     <splash src="res/splash/android/xhdpi-splash.jpg" density="xhdpi"/>
-    <splash src="res/splash/android/xxhdpi-splash.jpg" density="xxhdpi"/>
-    <splash src="res/splash/android/xxhdpi-splash.jpg" density="xxxhdpi"/>
+    <splash src="res/splash/android/xhdpi-splash.jpg" density="xxhdpi"/>
+    <splash src="res/splash/android/xhdpi-splash.jpg" density="xxxhdpi"/>
 
   </platform>
   <icon src="appicon.png" />
