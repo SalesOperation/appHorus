@@ -33,7 +33,7 @@ var app = {
         //window.plugins.toast.show('Back Bloq..', 1000, 'bottom');
         // Initialize the map view  
  
-        cordova.plugins.backgroundMode.setEnabled(true);  
+        //cordova.plugins.backgroundMode.setEnabled(true);  
         cordova.plugins.backgroundMode.overrideBackButton(); 
         cordova.plugins.backgroundMode.setDefaults({title:'SO - Horus', text: 'Tracking..', resume:false, hidden:true}); 
        
@@ -260,12 +260,12 @@ function reloadkpi(){
                 if(json_result[i].id_kpi == 101){
                     pros_mbl = parseInt(json_result[i].prospecciones);
                     pros_mbl_meta = parseInt(json_result[i].meta);
-                    pros_mbl_prom = pros_mbl/pros_mbl_meta;
+                    pros_mbl_prom = (pros_mbl/pros_mbl_meta)*100;
 
                 }else if(json_result[i].id_kpi == 102){
                     pros_home = parseInt(json_result[i].prospecciones);
                     pros_home_meta = parseInt(json_result[i].meta);
-                    pros_home_prom = pros_mbl/pros_mbl_meta;
+                    pros_home_prom = (pros_mbl/pros_mbl_meta)*100;
                 }
             }
 
