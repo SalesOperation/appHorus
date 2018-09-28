@@ -1045,6 +1045,9 @@ function getMapDash() {
                 for(i=0; i<markerDash.length; i++){
                     markerDash[i].setMap(mapDash);     
                 }
+                
+                latLong = new google.maps.LatLng(14.618086, -86.959082);
+                mapDash.setCenter(latLong);
                 mapDash.setZoom(7); 
             }
 
@@ -1086,9 +1089,6 @@ function getMapDash() {
             
             $("#mapSimbologia").html(str_simbols);   
             $("#mapSimbologia").trigger('refresh'); 
-
-            latLong = new google.maps.LatLng(14.618086, -86.959082);
-            mapDash.setCenter(latLong);
             $.mobile.loading('hide');           
         }, 
         error: function(error){
