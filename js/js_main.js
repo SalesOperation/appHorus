@@ -1,23 +1,46 @@
 // JavaScript General App
 
-var userWS = 'BOC';
-var pdwWS  = '5al3sOp3ration';
+var userWS = '69BA4B9D76B7C3452E2A48B7BF9790FE';
+var pdwWS  = '0BAD6CE456FCFBEF59544697D43E06D1';
 var vFlagTracking = false;
-var vTimerGPS = 30000;
+var vTimerGPS; // = 30000;
+var vIdFormulario ='XO';
+var vLat = 0;
+var vLng = 0;
 //var ws_url = 'http://localhost/ws_so/service_so.php'; 
 var ws_url = 'https://190.4.63.207/ws_so/service_so.php';
 
-var vDatosUsuario ={"user":"", "login":""};
-var vTitle ="Tracking Service Comercial Support";
-var map;
+var vDatosUsuario ={"user":"", "login":"", "name":"", "phone":0, "email":"na", "job":"na", "id_dms":0};
+var vTitle ="SO - Horus";
+var map1;
+var mapDash;
+var pgActual = 0;
+var pgBack = 0;
 
 
 var vIntersept = true;
 var vIntervalGeo;
 var vInteDash;
 var bgGeo;
-//var webSvrListener =  setInterval(function(){ consultSVR()}, 59000);
+var vFormData = {};
+var vFormsPendientes = [];
+var vFileG;  //Variable para foto del usuario
+var markerDash = [];
+var markIni;
+var markFin;
+var markHorus;
+var recorridoPath = [];
+var recorridoDash;
+var vGindicadorMap = 0;
+var vGtipomap = 0;
 
+//var webSvrListener =  setInterval(function(){ consultSVR()}, 59000);
+var pagRoot = [{id:0, back:0},
+                {id:1, back:0},
+                {id:2, back:0},
+                {id:3, back:0},
+                {id:100, back:3},
+                {id:101, back:3}];
 var app = {
     
     //alert(getParams('user'));
@@ -29,11 +52,12 @@ var app = {
     },
     
     onDeviceReady: function() {
+
         //shownot('Hello World');
         //window.plugins.toast.show('Back Bloq..', 1000, 'bottom');
         // Initialize the map view  
  
-        cordova.plugins.backgroundMode.setEnabled(true);  
+        //cordova.plugins.backgroundMode.setEnabled(true);  
         cordova.plugins.backgroundMode.overrideBackButton(); 
         cordova.plugins.backgroundMode.setDefaults({title:'SO - Horus', text: 'Tracking..', resume:false, hidden:true}); 
        
@@ -45,6 +69,18 @@ var app = {
             }         
         });
 
+        window.resolveLocalFileSystemURL(cordova.file.externalDataDirectory, 
+            function (fs) {
+                fs.getDirectory('resources', { create: true }, function (fs2){
+                    //console.log('Directorio - ' + fs2.name);
+                    /*fs2.getFile('log.txt', {create: true, exclusive: false}, 
+                        function(fileEntry) {
+                            alert('File creation successfull!');
+                        });*/
+                });
+            }, 
+            function(e){ alert(e.toString); }
+        );
 
         document.addEventListener('resume', function(e){
             //window.plugins.toast.show('Resume', 1000, 'bottom');
@@ -58,45 +94,58 @@ var app = {
 
         document.addEventListener('backbutton', function(e){
             console.log('..');
+            backButton();
        //     //window.plugins.toast.show('Back Bloq..', 1000, 'bottom');          
         });
         
-        getMap(14.618086,-86.959082);
+        
     }
 
 }
 
 $(document).ready(function(e){
+    setTimeout(function(){initMaps(14.618086,-86.959082); getMap(14.618086,-86.959082);}, 2000);
+    hide_pags();   
+    var img = new Image();
+    //img.src = 'img/salesman.png';
+    //saveImgtoDB(img); 
 
-
-    $("#pag2").hide();
-    $("#page").show();
-    $("#dvHead").hide();
-
-	$("#dvMain").hide();
-	$("#dvtitle").html(vTitle);  
-
-
+    $("#dvHorus").show();
+    $('#lbl_title').html('SO - Horus');            
+    $("#dvHead").show();
+    $("#horusSuper").hide();
     //map = plugin.google.maps.Map.getMap($("#dvMain")); 
+
+    if (vFlagTracking==false){
+        $("#startGPS").show();
+        $("#stopGPS").hide();
+    }else{
+        $("#startGPS").hide();
+        $("#stopGPS").show();        
+    }
+
 
     function validaLogin(){
         var tempLogin = getParams();
         vLogin = tempLogin.login;
+        vDateLicense = getYMD(0);
 
         vDatosUsuario.user = tempLogin.user;
         vDatosUsuario.login = vLogin;
 
         if(parseInt(vLogin) != 1){ 
             db.transaction(function(cmd){   
-                cmd.executeSql("SELECT * FROM users where login = '1'", [], function (cmd, results) {
+                cmd.executeSql("SELECT * FROM users where login = ? ", [1], function (cmd, results) {
                     var len = results.rows.length, i;                    
                     i = 0;
-                    
-                    if(len>0){
+
+                    if(len > 0 && vDateLicense > results.rows.item(0).license){
+                        //console.log('Licencia Vencida');
+                        console.log(results.rows.item(i).id);
                         $.ajax( {type:'POST',
                                 url: ws_url,
                                 dataType:'json',
-                                data: {m:100, ui:results.rows.item(i).id, pw:results.rows.item(i).pwd},
+                                data: {m:100,vx:userWS, vy:pdwWS, ui:results.rows.item(i).id, pw:results.rows.item(i).pwd},
                                 success: function(data){ 
                                     if(data[0].flag == 'false'){
                                         console.log('Log OK');
@@ -104,66 +153,366 @@ $(document).ready(function(e){
                                         ejecutaSQL(vQuery, 0);
                                         setTimeout(function(){window.location.replace('login.html');}, 800);
                                     }else{
-                                        
+
+                                        if(vDateLicense>data[0].vdatos[0].license){
+                                            setTimeout(function(){window.location.replace('login.html');}, 800);
+                                        }
+
+                                        vQuery = 'UPDATE users SET license = '+ data[0].vdatos[0].license +' WHERE id = \'' + results.rows.item(i).id + '\'';
+                                        ejecutaSQL(vQuery, 0);
+                                        //console.log(results.rows.item(i).name);
                                         vDatosUsuario.user = results.rows.item(i).id;
                                         vDatosUsuario.login = 1;
-                                        logInOut(vDatosUsuario.user, '1');      
+                                        vDatosUsuario.perfil = results.rows.item(i).type;
+                                        show_datos_user(vDatosUsuario.user);
+                                        logInOut(vDatosUsuario.user, 1);      
                                         
                                         $("#page").show();
-                                        $("#dvHead").show();
                                         $("#dvMain").show();
                                         $("#bg_login").hide();
+                                        $("#dvUserName").html(vDatosUsuario.user);
+                                        if(vDatosUsuario.perfil==201){
+                                            $("#horusSuper").show();
+                                        }else{
+                                            $("#horusSuper").hide();
+                                        }
                                     }
                                 },
                                 error: function(data){
-                                    //alert('Error consultando el servidor..');
+                                    alert('Error consultando el servidor..');
                                     setTimeout(function(){window.location.replace('login.html');}, 800);
                                 }
                         });                        	                                           
-                    }else{   
-                        window.location.replace('login.html');                         
+                    }else if (len > 0){   
+                        //window.location.replace('login.html');                         
+                        console.log('Loged In');
+                        vDatosUsuario.user = results.rows.item(i).id;
+                        vDatosUsuario.perfil = results.rows.item(i).type;
+                        vDatosUsuario.login = 1;
+                        show_datos_user(vDatosUsuario.user);
+                        logInOut(vDatosUsuario.user, 1);      
+                        
+                        $("#page").show();
+                        $("#dvMain").show();
+                        $("#bg_login").hide();
+                        $("#dvUserName").html(vDatosUsuario.user);
+
+                        if(vDatosUsuario.perfil==201){
+                            $("#horusSuper").show();
+                        }else{
+                            $("#horusSuper").hide();
+                        }
+
+                        setTimeout(function(){
+                            var strUrl = '';
+                            var arrFile = [];
+                            db.transaction(function(cmd2){
+                                cmd2.executeSql("SELECT * FROM tbl_files where id_file = ? order by correl asc", [vDatosUsuario.user], function (cmd2, results) {
+                                    var len = results.rows.length;
+                                    for(i=0;i<len; i++){
+                                        strUrl += results.rows.item(i).strdtos;
+                                        arrFile.push({id_file:results.rows.item(i).id_file, nombre:results.rows.item(i).name, tipo:results.rows.item(i).type, corel:results.rows.item(i).correl, dtos:results.rows.item(i).strdtos});
+                                    }
+                                    //console.log(strUrl);
+                                    //console.log('Img Loaded');
+                                    //sendFileToServer(arrFile);
+                                    if(strUrl.length<=10){
+                                        getFileToServer(vDatosUsuario.user);
+                                    }else{
+                                        displayImage(strUrl);
+                                    }
+                                });
+                            });
+                        }, 500);
+
+                    }else{
+                        window.location.replace('login.html'); 
                     }
                     //leeSMSs(); 
                 });
             });
         }else{ 
-            
+
+            show_datos_user(vDatosUsuario.user);
             $("#page").show();
-            $("#dvHead").show();
         	$("#dvMain").show(); 
         	$("#bg_login").hide(); 
-            logInOut(tempLogin.user, '1'); 	
+            logInOut(tempLogin.user, 1); 	            
+            $("#dvUserName").html(vDatosUsuario.user);
             //sleep(400);
+            setTimeout(function(){
+                var strUrl = '';
+                var arrFile = [];   
+
+                db.transaction(function(cmd){   
+                    cmd.executeSql("SELECT * FROM users where login = ? ", [1], function (cmd, results) {                        
+                        vDatosUsuario.perfil = results.rows.item(0).type;
+                        if(vDatosUsuario.perfil==201){
+                            $("#horusSuper").show();
+                        }else{
+                            $("#horusSuper").hide();
+                        }
+                    });
+                });             
+
+                db.transaction(function(cmd2){
+                    cmd2.executeSql("SELECT * FROM tbl_files where id_file = ? order by correl asc", [vDatosUsuario.user], function (cmd2, results) {
+                        var len = results.rows.length;
+
+                        for(i=0;i<len; i++){
+                            strUrl += results.rows.item(i).strdtos;
+                            arrFile.push({id_file:results.rows.item(i).id_file, nombre:results.rows.item(i).name, tipo:results.rows.item(i).type, corel:results.rows.item(i).correl, dtos:results.rows.item(i).strdtos});          
+                        }
+                        //console.log(strUrl);                        
+                        //console.log('Img Loaded');
+                        //sendFileToServer(arrFile);                        
+                        if(strUrl.length<=10){
+                            getFileToServer(vDatosUsuario.user);
+                        }else{
+                            displayImage(strUrl);
+                        }
+                    });
+                });
+            }, 500);
         }
     }
     setTimeout( function(){ validaLogin();}, 100); 
 
+    $("#imgUser").dblclick(function(){
+        takePicture();
+    });
+
+    setTimeout(function(){
+        db.transaction(function(cmd2){
+            cmd2.executeSql("SELECT * FROM params where id = 1", [], function (cmd2, results) {
+                var len = results.rows.length;
+                if(len>0){
+                    vTimerGPS = results.rows.item(0).dvalue;
+                }
+            });
+        });
+    }, 1000);
+
+    $('[type=radio').on('change', function(event){
+        var id_input = event.target.id.toString();
+        var str_simbols = '';
+        //console.log(id_input);
+        if(id_input == "rdMap1" || id_input == 'rdMap2'){
+            //console.log('Tipo map ' + event.target.value);
+            vGindicadorMap = parseInt(event.target.value);          
+
+        }else if(id_input == "rdMap3" || id_input == 'rdMap4'){
+            if(id_input == "rdMap4"){
+                $("#vUsuariosHorus").show();
+            }else{
+                $("#vUsuariosHorus").hide();
+            }
+            //console.log('Tacking ' + event.target.value);
+            vGtipomap = parseInt(event.target.value);
+        }
+        setTimeout(function(){getMapDashOffline();}, 100);
+    });
+
+    $('#flip_online').on('change', function(event){
+        if(event.target.value=='on'){
+            getMapDash();
+            vInteDash = setInterval(function(){ getMapDash(); }, 360000);
+        }else{
+            clearInterval(vInteDash);
+        }
+    });
+
 });
 
 
+function fchangUsr(){
+    //console.log($("#vSelUsers").val());
+    setTimeout(function(){getMapDashOffline();}, 100);
+}
+function show_datos_user(vUser){
+    db.transaction(function(cmd2){
+        cmd2.executeSql("SELECT * FROM users where id = ?", [vUser], function (cmd2, results) {
+            var len = results.rows.length;
+            if(len>0){
+                vDatosUsuario.user = results.rows.item(0).id;
+                vDatosUsuario.name = results.rows.item(0).name;
+                vDatosUsuario.email = results.rows.item(0).email;
+                vDatosUsuario.job = results.rows.item(0).job_title;
+                vDatosUsuario.id_dms = results.rows.item(0).id_dms;
+                vDatosUsuario.phone = results.rows.item(0).phone;
+
+
+                $("#id_dms_user").html(vDatosUsuario.id_dms);
+                $("#num_tel").html(vDatosUsuario.phone);
+                $("#uid_user").html(vDatosUsuario.user.toLowerCase());
+                $("#name_user").html(vDatosUsuario.name);
+                $("#email_user").html(vDatosUsuario.email);
+                $("#job_user").html(vDatosUsuario.job); 
+            }
+        });
+    });
+}
+
+
+
+function hide_pags(){
+
+    //$("#dvMain").hide();
+    $("#dvtitle").html(vTitle); 
+    $("#dvHorus").hide();
+    $("#dvHsuper").hide();
+    $("#vUsuariosHorus").hide();
+}
+
+
+function takePicture(){
+    navigator.camera.getPicture(onSuccess, onFail, { quality: 50, sourceType:Camera.PictureSourceType.CAMERA, correctOrientation:true,
+            cameraDirection: Camera.Direction.FRONT, allowEdit: true});
+
+    function onSuccess(imageURI) {        
+        var img = new Image();
+        img.src = imageURI;
+        saveImgtoDB(img);
+    }
+
+    function onFail(message) {
+        alert('Failed because: ' + message);
+    }
+}
+
+function displayImage(imgUri) {
+    $("#imgUser").attr('src', imgUri);
+}
+
+
+function saveImgtoDB(imgFile){
+    var cant_rows = 0;
+    var arrImg = [];
+    var strUrl = '';
+    var arrStrUrl = [];
+    var arrFile = [];
+    img = imgFile;
+
+    setTimeout(function(){   
+                imgW = img.width;
+                imgH = img.height;
+                ratio = (imgH/imgW).toFixed(2);
+
+                var wid = 640;
+                var hei = wid*ratio;            
+
+                var canvas = document.createElement('canvas');
+                var ctx = canvas.getContext('2d');
+                canvas.width=wid;
+                canvas.height=hei;
+                ctx.drawImage(img, 0, 0, wid, hei);
+                var dataurl = canvas.toDataURL("image/jpeg");
+                cant = (dataurl.length/4000).toFixed(2);
+                //console.log(cant);
+                arr_decimal = cant.split('.');
+                if(parseInt(arr_decimal[1])>0){
+                    cant_rows = parseInt(arr_decimal[0]) + 1;
+                }else{
+                    cant_rows = parseInt(arr_decimal[0]);
+                }
+                //console.log(cant_rows);
+
+                for(i=1; i<=cant_rows; i++){
+                    //console.log('From:' + (i-1)*4000 + ' To:'+ ((i*4000)-1));
+                    //console.log(i +','+ vFile.name + ',' + dataurl.substring((i-1)*4000, ((i*4000)-1)));
+                    arrImg.push(dataurl.substring((i-1)*4000, (i*4000)));
+                }
+                //console.log(arrImg);
+                for(j=0;j<arrImg.length; j++){
+                    strUrl += arrImg[j].replace('"', '');
+                    arrStrUrl.push({user:vDatosUsuario.user, num:j, name:'imgUser', type:'jpeg', dtos:arrImg[j].replace('"', '')});
+                    arrFile.push({id_file:vDatosUsuario.user, nombre:'imgUser', tipo:'jpeg', corel:j, dtos:arrImg[j].replace('"', '')});                              
+                }
+
+                //console.log(strUrl.length +'-'+ dataurl.length);
+                //console.log(strUrl);
+                ejecutaSQL('DELETE FROM tbl_files where id_file=\'' + arrStrUrl[0].user + '\'', 0)
+                setTimeout(function(){
+                    for(i=0;i<arrStrUrl.length; i++){
+                        vQry = 'INSERT INTO tbl_files (id_file, correl, name, type, strdtos) VALUES(';
+                        vQry += '\'' + arrStrUrl[i].user + '\',' + arrStrUrl[i].num + ',\''  + arrStrUrl[i].name + '\',\'' + arrStrUrl[i].type + '\',\'' + arrStrUrl[i].dtos + '\')';                
+                        //console.log(vQry);
+                        ejecutaSQL(vQry, 0); 
+                    }
+                    sendFileToServer(arrFile);
+
+                }, 1000);
+
+                displayImage(strUrl);
+            }, 500);     
+}
+
+function backButton(){
+
+    if(parseInt(pgActual) != 0){        
+        for(i=0; i<pagRoot.length; i++){
+            if(parseInt(pagRoot[i].id) == parseInt(pgActual)){
+                //console.log(pgActual);
+                switchMenu(pagRoot[i].id, pagRoot[i].back);
+            }
+        }
+    } 
+}
 
 function switchMenu(vIdFrom, vIdTo){
+    pgActual = vIdTo;
+    pgBack = vIdFrom;
+    //console.log('A-' + pgActual + '/B-' + pgBack);
+
     switch(vIdTo)
     {
         case 0:
-            $("#pag2").hide();
-            $("#pag1").show();
+            hide_pags();            
+            $('#lbl_title').html('SO - Horus');            
+            $("#dvHead").show();
+            $("#dvHorus").show();
+            show_datos_user(vDatosUsuario.user);                                
+
         break;
-        case 1:
-            $("#pag2").show();
-            $("#pag1").hide();
-            reloadkpi();
+        case 1:            
+            hide_pags();
+            getMapDash(14.618086,-86.959082);
+            $('#lbl_title').html('SO - Horus');            
+            $("#dvHead").show();
+            $("#dvHsuper").show();
+            
         break;
+        case 3:
+            hide_pags();
+            $("#pagDMS_forms").show();
+            $("#forms_list").show();
+            $("#forms_enviados").hide();
+            $("#forms_pendientes").hide();
+
+            $('#lbl_title').html('DOCUMENTOS DMS');
+            $("#dvHead").show();
+            show_Forms();
+            vfechini = getYMD(0);
+            vfechfin = getYMD(0);
+            $("#fechIniForm").val(vfechini.substr(0,4) + '-' + vfechini.substr(4,2) + '-' + vfechini.substr(6,2));
+            $("#fechFinForm").val(vfechfin.substr(0,4) + '-' + vfechfin.substr(4,2) + '-' + vfechfin.substr(6,2));
+
+        break;
+        case 100:
+            hide_pags();
+            $("#dv_forms_template").show();
+            $('#lbl_title').html('DOCUMENTOS DMS');
+            $("#dvHead").show();
+        break
     }
     $("#dvMenu").panel('close');
 }
 
 function saveGPS(vFecha, vLat, vLng, vUser){
-
     //navigator.vibrate(25); 
     $.ajax({
         type: 'POST',
-        data: {m:201, f:vFecha, lat:vLat, lng:vLng, ui:vUser},        
+        data: {m:201,vx:userWS, vy:pdwWS, f:vFecha, lat:vLat, lng:vLng, ui:vUser},        
         dataType:'text',
         url: ws_url,
         success: function(data){
@@ -205,13 +554,17 @@ function onSuccess(position){
         sc = d.getSeconds();
     }
 
-    console.log(h +'+'+m);
+    //console.log(h +'+'+m);
+    vLat = position.coords.latitude;
+    vLng = position.coords.longitude;
+
+
+    saveGPS(getYMD(0) + h + m + sc, position.coords.latitude, position.coords.longitude, vDatosUsuario.user); 
     getMap(position.coords.latitude, position.coords.longitude);
 
     vQre = 'INSERT INTO records (fecha, lat, lng, user) VALUES(\'' + getYMD(0) + h + m + sc + '\',';
     vQre += position.coords.latitude + ',' + position.coords.longitude + ',\''+ vDatosUsuario.user + '\')';
-    //ejecutaSQL(vQre, 0);
-    saveGPS(getYMD(0) + h + m + sc, position.coords.latitude, position.coords.longitude, vDatosUsuario.user);    
+    //ejecutaSQL(vQre, 0);   
     
     
     //$("#test").append(d.getHours() +':'+ d.getMinutes() + '<br />' + position.coords.latitude + '/' + position.coords.longitude + '<br />');
@@ -223,119 +576,22 @@ function onErrorF(error){
 }
 
 
-function reloadkpi(){
-    vUser = vDatosUsuario.user;
-
-    var vHtml = '';
-    var json_result = [];
-    var pros_mbl = 0;
-    var pros_mbl_meta = 0;
-    var pros_mbl_prom = 0;
-    var pros_home = 0;
-    var pros_home_meta = 0;
-    var pros_home_prom = 0;
-    var vendedor = vUser;
-
-
-    $.ajax({
-        type: 'POST',
-        data: {m:102, ui:vUser},        
-        dataType:'json',
-        url: ws_url,
-        beforeSend: function(){
-            $.mobile.loading( 'show', {
-                text: 'Cargando...',
-                textVisible: true,
-                theme: 'a',
-                html: ""
-            });
-        },
-        success: function(data){
-            //alert(data);
-            console.log(data);
-            json_result = data;
-            for(i=0; i<json_result.length; i++){
-                vendedor = json_result[i].vendedor;
-                if(json_result[i].id_kpi == 101){
-                    pros_mbl = parseInt(json_result[i].prospecciones);
-                    pros_mbl_meta = parseInt(json_result[i].meta);
-                    pros_mbl_prom = pros_mbl/pros_mbl_meta;
-
-                }else if(json_result[i].id_kpi == 102){
-                    pros_home = parseInt(json_result[i].prospecciones);
-                    pros_home_meta = parseInt(json_result[i].meta);
-                    pros_home_prom = pros_mbl/pros_mbl_meta;
-                }
-            }
-
-        },
-        error: function(data){
-            console.log(data);
-            //alert(data);
-        },
-        complete: function(){
-            //console.log(pros_mbl);
-            vHtml += '<table border="0" width="100%">'                                    
-            vHtml += ' <tr><td width="50%">Prop. MBL</td>'
-            vHtml += ' <td width="16%" align="center">' + pros_mbl + '</td>'
-            vHtml += ' <td width="16%" align="center">'+ pros_mbl_meta +'</td>'
-            vHtml += ' <td align="right">'+ pros_mbl_prom.toFixed(2) +'%</td>'
-            vHtml += ' </tr><tr>'
-            vHtml += ' <td>Prop. Home</td>'
-            vHtml += ' <td width="16%" align="center">' + pros_home + '</td>'
-            vHtml += ' <td width="16%" align="center">'+ pros_home_meta +'</td>'
-            vHtml += ' <td align="right">'+ pros_home_prom.toFixed(2) +'%</td>'
-            vHtml += ' </tr></table>'
-
-            $("#lbl_p_home").html(pros_home);
-            $("#lbl_p_mbl").html(pros_mbl);   
-            $("#vdr_name").html(vendedor); // vDatosUsuario.user) ;
-            $("#tbl_content").html(vHtml);
-
-            setTimeout(function(){
-                $.mobile.loading('hide');
-            }, 400);
-        }
-    });
-}
-
-
-
-function showdata(){
-
-    $.ajax({
-        type: 'POST',
-        dataType:'text',
-        data: {op:1},
-        url: 'http://iteshn.hol.es/server_app/svrConsultasSO.php',
-        success: function(data){
-            alert(data);
-            console.log('Sucess Save on Server');
-        },
-        error: function(data){
-            console.log(data);
-            alert('Error de conexion con el servidor');
-        }
-    });
-}
-
 function tracking(){
 
     if(vFlagTracking ==  false){
         cordova.plugins.backgroundMode.setEnabled(true); 
         clearInterval(vIntervalGeo);
         console.log('starting..');
-        $("#btn_tack").attr('src', 'img/tracking.png');
-        $("#lbl_tracking").html('Detener Tracking');
-        $("#msj").html('Recorido Iniciado');
+        $("#startGPS").hide();
+        $("#stopGPS").show();
+
         vFlagTracking = true;
         getMapLocation();
         vIntervalGeo = setInterval(function(){ getMapLocation(); }, vTimerGPS);
 
     }else{
-        $("#btn_tack").attr('src', 'img/play.png');
-        $("#lbl_tracking").html('Iniciar Tracking');
-        $("#msj").html('Recorido Finalizado');
+        $("#startGPS").show();
+        $("#stopGPS").hide();
         clearInterval(vIntervalGeo);
         vFlagTracking = false;
         cordova.plugins.backgroundMode.setEnabled(false); 
@@ -343,111 +599,11 @@ function tracking(){
 }
 
 function logout(){
-    console.log(vDatosUsuario.user);
-    logInOut(vDatosUsuario.user, '0');
+    //console.log(vDatosUsuario.user);
+    logInOut(vDatosUsuario.user, 0);
     setTimeout(function(){ window.location.replace('index.html?user=0&login=0'); }, 800);
 }
 
-
-
-function getDataDB2(vQry, vZn, vKpi, vTypeD){
-    var dataDrill = [];
-
-    db.transaction(function(cmd2){  
-        //console.log(vQry);        
-        cmd2.executeSql(vQry,[], function (cmd2, results2) {
-            //console.log('Sub Cnl por Zona ' + results2.rows.length); 
-
-            if(vTypeD==0){
-                for(var j=0; j<results2.rows.length; j++){
-                    dataDrill.push([results2.rows.item(j).sub_cnl, results2.rows.item(j).ejecutado]);
-                } 
-                dataDrill1.push({"name":"Zona " + vZn, "id": vKpi + " Zona "+vZn, "data":dataDrill});
-            }else{
-                for(var j=0; j<results2.rows.length; j++){
-                    dataDrill.push(['Zona ' + results2.rows.item(j).zona, results2.rows.item(j).ejecutado]);
-                } 
-                dataDrill1.push({"name":vZn, "id": vKpi + '-' + vZn, "data":dataDrill});
-            }
-            
-
-            //console.log(JSON.stringify(dataDrill1));
-        });
-    }, function(e){console.log(e);});
-}
-
-
-function consultSVR(){
-    //alert('hello');
-    var varJSNkpis;
-    var vCountRegs = 0;
-    var vQry1 = '';
-    var vQry2 = '';
-    var vYMD =  getYMD(-1);
-    var vDataDecode = '';
-
-    //console.log('consulting server');
-    //$.post('http://localhost/proyects_amg/web/websvr/svrkpi/svrConsultas.php', {op:2, kpi:0, date:vYMD, user:userWS, pdw:pdwWS}, function(rData){    //'https://svrconsultas.appspot.com/test/', function(rData){
-    $.post('http://localhost:8081/ws_so1/ws_consultas_boc/kpis/2017/09/1101', function(rData){
-    //$.post('https://svrconsultas.appspot.com/test/', {user:userWS, pdw:pdwWS}, function(rData){
-        //console.log(str2Hex(rData));
-        alert(rData);
-        //console.log(rData);
-        //vDataDecode = hex2a(rData);
-        vDataDecode = rData;
-
-        varJSNkpis = JSON.parse(vDataDecode);
-        vCountRegs = varJSNkpis.kpis.length;
-        console.log(vCountRegs);
-
-        vGcountRegs = vCountRegs*2;
-        vGcountRegs_Flag = 0;
-
-        for(var i=0; i<vCountRegs; i++){
-            //Delete from Main Data KPI
-            //vQry1 = "DELETE FROM kpi_data WHERE id="+ varJSNkpis.kpis[i].id;
-            vQry1 = "DELETE FROM kpi_data WHERE id="+ varJSNkpis.kpis[i].id + " and zona=" + varJSNkpis.kpis[i].zona + " and cnl='" + varJSNkpis.kpis[i].cnl + "' and sub_cnl='" + varJSNkpis.kpis[i].sb_cnl
-                    + "' and territorio=" + varJSNkpis.kpis[i].ter;
-            ejecutaSQL(vQry1, 0);
-
-            //Delete from Hist Data KPI
-            vQry1 = "DELETE FROM kpi_data_hist WHERE id="+ varJSNkpis.kpis[i].id + " and zona=" + varJSNkpis.kpis[i].zona + " and cnl='" + varJSNkpis.kpis[i].cnl + "' and sub_cnl='" + varJSNkpis.kpis[i].sb_cnl
-                    + "' and territorio=" + varJSNkpis.kpis[i].ter + " and fecha=" + varJSNkpis.kpis[i].fecha + '';
-            ejecutaSQL(vQry1, 0);            
-        }
-        sleep(2000);
-
-        for(var i=0; i<vCountRegs; i++){
-
-            //Insert into Main Data KPI
-            vQry2 = "INSERT INTO kpi_data VALUES(" + varJSNkpis.kpis[i].id + ",'" + varJSNkpis.kpis[i].kpi + "'," + varJSNkpis.kpis[i].ter + "," + varJSNkpis.kpis[i].year + "," + varJSNkpis.kpis[i].month
-                    + "," + varJSNkpis.kpis[i].fecha + "," + varJSNkpis.kpis[i].zona + ",'" + varJSNkpis.kpis[i].cnl + "','" + varJSNkpis.kpis[i].sb_cnl 
-                    + "'," + varJSNkpis.kpis[i].ejecutado + ',' + varJSNkpis.kpis[i].forecast +',' + varJSNkpis.kpis[i].budget + ",'" + varJSNkpis.kpis[i].unit
-                     + "','" + varJSNkpis.kpis[i].bu + "')";
-            //console.log(vQry2);
-            ejecutaSQL(vQry2, 1);
-            sleep(500);
-
-            //Insert into Hist Data KPI
-            vQry2 = "INSERT INTO kpi_data_hist VALUES(" + varJSNkpis.kpis[i].id + ",'" + varJSNkpis.kpis[i].kpi + "'," + varJSNkpis.kpis[i].ter + "," + varJSNkpis.kpis[i].year + "," + varJSNkpis.kpis[i].month
-                    + "," + varJSNkpis.kpis[i].fecha + "," + varJSNkpis.kpis[i].zona + ",'" + varJSNkpis.kpis[i].cnl + "','" + varJSNkpis.kpis[i].sb_cnl 
-                    + "'," + varJSNkpis.kpis[i].ejecutado + ',' + varJSNkpis.kpis[i].forecast +',' + varJSNkpis.kpis[i].budget + ",'" + varJSNkpis.kpis[i].unit
-                     + "','" + varJSNkpis.kpis[i].bu + "')";
-            //console.log(vQry2);
-            ejecutaSQL(vQry2, 1);
-        }
-    });
-}
-
-//Sleep 
-function sleep(milliseconds) {
-  var start = new Date().getTime();
-  for (var i = 0; i < 1e7; i++) {
-    if ((new Date().getTime() - start) > milliseconds){
-      break;
-    }
-  }
-}
 
 function getParams(param) {
     var vars = {};
@@ -507,12 +663,38 @@ function getYMD(vDays){
     return strDate;
 }
 
+function getHMS(){
+    var vToday = new Date();
+    var time = vToday.getTime();
+    //var milsecs = parseInt(vDays*24*60*60*1000);
+    vToday.setTime(time);
+    var strDate = '';
+
+    if(parseInt(vToday.getHours()) < 10 ){
+        strDate += '0' + (vToday.getHours());
+    }else{
+        strDate += '' + (vToday.getHours());
+    }
+    if(parseInt(vToday.getMinutes()) < 10 ){
+        strDate += '0' + vToday.getMinutes();
+    }else{
+        strDate += '' + vToday.getMinutes();
+    }
+    if(parseInt(vToday.getSeconds()) < 10 ){
+        strDate += '0' + vToday.getSeconds();
+    }else{
+        strDate += '' + vToday.getSeconds();
+    }
+
+    return strDate;
+}
+
+
 function getMonthName(vMonth){
     var ArrNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul','Ago','Sep','Oct', 'Nov', 'Dic'];
     return ArrNames[parseInt(vMonth)-1];
 }
   
-
 
 //Decodificador de datos
 function hex2a(hexx) {
@@ -538,28 +720,46 @@ function b64_to_str(vStr){
 	return decodeURIComponent(escape(window.atob(vStr)));
 }
 
-
-function getMap(latitude, longitude) {
-
+function initMaps(lat, lng){
     var mapOptions = {
-        center: new google.maps.LatLng(0, 0),
-        zoom: 1,
+        center: new google.maps.LatLng(lat, lng),
+        zoom: 10,
         mapTypeId: google.maps.MapTypeId.ROADMAP
     };
 
-    map = new google.maps.Map
-    (document.getElementById("map_tracking"), mapOptions);
+    map1 = new google.maps.Map(document.getElementById("mapHorus"), mapOptions);
+    mapDash = new google.maps.Map(document.getElementById("dvMapDash"), mapOptions);  
 
+    recorridoDash = new google.maps.Polyline({
+                    path:[{lat:0, lng:0}],
+                    geodesic: true,
+                    strokeColor: '#FF0000'
+                });
 
-    var latLong = new google.maps.LatLng(latitude, longitude);
-
-    var marker = new google.maps.Marker({
+    var latLong = new google.maps.LatLng(0, 0);
+    markIni = new google.maps.Marker({
+        position: latLong
+    });
+    markFin = new google.maps.Marker({
         position: latLong
     });
 
-    marker.setMap(map);
-    map.setZoom(12);
-    map.setCenter(marker.getPosition());
+    latLong = new google.maps.LatLng(lat, lng);
+    markHorus = new google.maps.Marker({
+        position: latLong
+    });
+
+}
+
+
+function getMap(latitude, longitude) {
+
+    var latLong = new google.maps.LatLng(latitude, longitude);
+    markHorus.setPosition(latLong);
+
+    markHorus.setMap(map1);
+    map1.setZoom(10);
+    map1.setCenter(markHorus.getPosition());
 }
 
 function setMarkGPS(lat, lng){
@@ -573,3 +773,548 @@ function setMarkGPS(lat, lng){
     marker.setMap(map);
     map.setCenter(marker.getPosition());
 }
+
+
+function getBase64(file) {
+   var reader = new FileReader();
+   reader.readAsDataURL(file);
+   reader.onload = function () {
+     //console.log(reader.result);
+   };
+   reader.onerror = function (error) {
+     //console.log('Error: ', error);
+   };
+}
+
+
+function resize_img(){
+    setTimeout(function(){ 
+        wuser = $("#imgUser").width()*1.02; 
+        //console.log('Resizin img - ' + wuser);
+        $("#imgUser").css('height', 
+        wuser); }, 
+    200);
+}
+
+
+
+
+function validaCampo(vDato, vTipo){
+    var result;
+
+    switch(vTipo){
+        //Numerico
+        case 0:
+            if (/^\s*$/.test(vDato)){
+                result = 0;
+            }else{
+                if(/[0-9]/.test(vDato)){
+                    result = vDato;
+                }else{
+                    result = 0;
+                }
+            }
+        break;
+        //Alfanumerico
+        case 1:
+            if (/^\s*$/.test(vDato)){
+                result ='-';
+            }else{
+                result = vDato;                
+            }
+        break;
+        default:
+            result = 0;
+        break;
+    }
+    return result;
+}
+
+
+function sendFileToServer(vArrFile){
+    $.ajax({
+        url:ws_url,
+        type:'POST',
+        data:{m:303,vx:userWS, vy:pdwWS, arrFile:vArrFile},        
+        dataType:'text',
+        success: function(data){
+            console.log(data);
+        }, 
+        error: function(error){
+            console.log(error);
+        }
+    });  
+}
+
+function getFileToServer(vFileId){
+
+    var result;
+    var strImg = '';
+    $.ajax({
+        url:ws_url,
+        type:'POST',
+        data:{m:304,vx:userWS, vy:pdwWS, idFile:vFileId},        
+        dataType:'text',
+        success: function(data){
+            result = eval(data);
+            //console.log(result);
+            ejecutaSQL('DELETE FROM tbl_files where id_file=\'' + result[0].id_file + '\'', 0)
+            setTimeout(function(){
+                for(i=0;i<result.length; i++){
+                    strImg += result[i].dtos;
+                    vQry = 'INSERT INTO tbl_files (id_file, correl, name, type, strdtos) VALUES(';
+                    vQry += '\'' + result[i].id_file + '\',' + result[i].corel + ',\''  + result[i].name + '\',\'' + result[i].tipo + '\',\'' + result[i].dtos + '\')';                
+                    //console.log(vQry);
+                    ejecutaSQL(vQry, 0); 
+                }
+                //console.log('Img Saved Done');
+                if(strImg.length>=10){
+                    displayImage(strImg);                    
+                }else{
+                    displayImage('img/salesman.png');
+                }
+            }, 1000);
+        }, 
+        error: function(error){
+            console.log(error);
+        }
+    });  
+}
+
+/* calcular distancia entre 2 coordenadas en Kmts*/
+function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
+  var R = 6371; // Radius of the earth in km
+  var dLat = deg2rad(lat2-lat1);  // deg2rad below
+  var dLon = deg2rad(lon2-lon1); 
+  var a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2)
+    ; 
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  var d = R * c; // Distance in km
+  return d;
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI/180)
+}
+
+
+function getMapDash() {
+    var latLong;
+    var urlImg;
+    var vFlag = 0;
+    var str_simbols = '';
+    var countRed = 0;
+    var countYel = 0;
+    var countGre = 0;
+    var countGra = 0;
+
+    /*Limpia marcas del mapa*/
+    for(i=0; i<markerDash.length; i++){
+        markerDash[i].setMap(null);     
+    }
+    markerDash = [];
+    recorridoDash.setMap(null);
+    recorridoPath = [];
+    markIni.setMap(null);
+    markFin.setMap(null);
+
+    $.mobile.loading('show');
+    $.ajax({
+        url:ws_url,
+        type:'POST',
+        data:{m:103,vx:userWS, vy:pdwWS, ui:vDatosUsuario.user},        
+        dataType:'text',
+        success: function(data){
+            result = eval('(' + data + ')');
+            //console.log(result);
+            if(vGtipomap==0){
+                $("#vSelUsers").empty();
+                for(j=0;j<result.gps.length; j++){
+                    if (j==0){
+                        $('#vSelUsers').append('<option value="' + result.gps[j].user + '" selected="selected">'+ result.gps[j].user +'</option>');
+                    }else{
+                        $('#vSelUsers').append('<option value="' + result.gps[j].user + '">'+ result.gps[j].user +'</option>');
+                    }
+                }
+                $('#vSelUsers').selectmenu("refresh");                
+            }
+
+            //Insert nuevas GPS obtenidas del WS
+            if(result.gps.length>0){              
+
+                ejecutaSQL('DELETE FROM gps_actual');
+                setTimeout(function(){
+                    for(i=0;i<result.gps.length; i++){
+                        vQry = 'INSERT INTO gps_actual (user, fecha, lat, lng, flag_ini, flag_plan) VALUES(';
+                        vQry += '\'' + result.gps[i].user + '\',' + result.gps[i].fech + ','  + result.gps[i].lat.toString().replace(",", ".") + ',' + result.gps[i].lng.toString().replace(",", ".") + ',' + result.gps[i].flag_ini + ',' + result.gps[i].flag_plan + ')';                
+                        
+                        ejecutaSQL(vQry, 0); 
+                    }
+                    
+                }, 500);
+            }
+
+            if(result.recorridos.length>0){
+                ejecutaSQL('DELETE FROM gps_recorridos');
+                setTimeout(function(){
+                    for(i=0;i<result.recorridos.length; i++){
+                        vQry = 'INSERT INTO gps_recorridos (user, fecha, lat, lng) VALUES(';
+                        vQry += '\'' + result.recorridos[i].user + '\',' + result.recorridos[i].fech + ','  + result.recorridos[i].lat.toString().replace(",", ".") + ',' + result.recorridos[i].lng.toString().replace(",", ".") +  ')';                
+                        
+                        ejecutaSQL(vQry, 0); 
+                    }
+                }, 1000);
+            }
+
+            for(i=0;i<result.gps.length; i++){
+
+                if(vGindicadorMap==0){
+                    vFlag = parseInt(result.gps[i].flag_ini);
+                }else{
+                    vFlag = parseInt(result.gps[i].flag_plan);
+                }
+
+                switch(vFlag)
+                {
+                    case 1:
+                        urlImg = 'img/p_red.png';
+                        countRed ++;
+                    break;
+                    case 2:
+                        urlImg = 'img/p_yellow.png';
+                        countYell ++;
+                    break;
+                    case 3:
+                        urlImg = 'img/p_green.png';
+                        countGre ++;
+                    break;
+                    default:
+                        urlImg = 'img/p_gray.png';
+                        countGra ++;
+                    break;
+
+                }
+                latLong = new google.maps.LatLng(result.gps[i].lat.replace(",", "."), result.gps[i].lng.replace(",", "."));
+                var Tmarker = new google.maps.Marker({
+                    position: latLong,
+                    title: result.gps[i].user,
+                    icon:urlImg
+                });
+                markerDash.push(Tmarker);
+            }
+            
+
+            if(vGtipomap==1){
+                var userRec = $("#vSelUsers").val();
+                //console.log(userRec);
+                for(i=0;i<result.recorridos.length; i++){
+                    if(result.recorridos[i].user.toUpperCase() == userRec.toUpperCase()){
+                        recorridoPath.push({lat: parseFloat(result.recorridos[i].lat.toString().replace(",", ".")), lng:parseFloat(result.recorridos[i].lng.toString().replace(",", "."))});    
+                    }
+                    
+                }
+                //console.log(recorridoPath);
+                recorridoDash = new google.maps.Polyline({
+                    path:recorridoPath,
+                    geodesic: true,
+                    strokeOpacity:0.8,
+                    strokeColor: '#FF0000'
+                });
+
+                var latLong = new google.maps.LatLng(recorridoPath[0].lat, recorridoPath[0].lng);
+                markIni = new google.maps.Marker({
+                    position: latLong,
+                    icon: 'img/markini.png'
+                });
+
+                latLong = new google.maps.LatLng(recorridoPath[recorridoPath.length-1].lat, recorridoPath[recorridoPath.length-1].lng);
+                markFin = new google.maps.Marker({
+                    position: latLong,
+                    icon: 'img/markfin.png'
+                });
+
+                markIni.setMap(mapDash);
+                markFin.setMap(mapDash);
+                recorridoDash.setMap(mapDash);
+                mapDash.setCenter(latLong);
+
+            }else{
+                for(i=0; i<markerDash.length; i++){
+                    markerDash[i].setMap(mapDash);     
+                }
+                mapDash.setZoom(7); 
+            }
+
+            if(vGindicadorMap == 0){
+                str_simbols +='<div class=\"ui-grid-c\">';
+                str_simbols +='            <div class=\"ui-block-a\">';
+                str_simbols +='                <center><img src=\"img/map-marker-gray.png\" width=\"30px\" />';
+                str_simbols +='                    <label style=\"font-size:0.8em\">No Marca</label><label style=\"font-size:0.8em\">'+ countGra +'</label>';
+                str_simbols +='            </div>';
+                str_simbols +='            <div class=\"ui-block-b\">';
+                str_simbols +='                <center><img src=\"img/map-marker-red.png\" width=\"30px\" />';
+                str_simbols +='                    <label style=\"font-size:0.8em\">Mrc Fuera</label><label style=\"font-size:0.8em\">'+ countRed +'</label>';
+                str_simbols +='            </div>';
+                str_simbols +='            <div class=\"ui-block-c\">';
+                str_simbols +='                <center><img src=\"img/map-marker-yellow.png\" width=\"30px\" />';
+                str_simbols +='                    <label style=\"font-size:0.8em\">Mrc Tarde</label><label style=\"font-size:0.8em\">'+ countYel +'</label>';
+                str_simbols +='            </div>';
+                str_simbols +='            <div class=\"ui-block-d\">';
+                str_simbols +='                <center><img src=\"img/map-marker-green.png\" width=\"30px\" />';
+                str_simbols +='                    <label style=\"font-size:0.8em\">Mrc a Tiempo</label><label style=\"font-size:0.8em\">'+ countGre +'</label>';
+                str_simbols +='           </div>';
+                str_simbols +='       </div>';
+            }else{
+                str_simbols +='<div class=\"ui-grid-b\">';
+                str_simbols +='           <div class=\"ui-block-b\">';
+                str_simbols +='               <center><img src=\"img/map-marker-red.png\" width=\"30px\" />';
+                str_simbols +='                   <label style=\"font-size:0.8em\">No Prsp. No Mov.</label><label style=\"font-size:0.8em\">'+ countRed +'</label>';
+                str_simbols +='            </div>';
+                str_simbols +='           <div class=\"ui-block-c\">';
+                str_simbols +='               <center><img src=\"img/map-marker-yellow.png\" width=\"30px\" />';
+                str_simbols +='                    <label style=\"font-size:0.8em\">Mov. no Prsp.</label><label style=\"font-size:0.8em\">'+ countYel +'</label>';
+                str_simbols +='           </div>';
+                str_simbols +='          <div class=\"ui-block-d\">';
+                str_simbols +='              <center><img src=\"img/map-marker-green.png\" width=\"30px\" />';
+                str_simbols +='                   <label style=\"font-size:0.8em\">Mov. y/o Prsp.</label><label style=\"font-size:0.8em\">'+ countGre +'</label>';
+                str_simbols +='           </div>';
+                str_simbols +='      </div>';
+            }
+            
+            $("#mapSimbologia").html(str_simbols);   
+            $("#mapSimbologia").trigger('refresh'); 
+
+            latLong = new google.maps.LatLng(14.618086, -86.959082);
+            mapDash.setCenter(latLong);
+            $.mobile.loading('hide');           
+        }, 
+        error: function(error){
+            console.log(error);
+            $.mobile.loading('hide');
+        }
+    });  
+    //map.setCenter(marker[0].getPosition());
+}
+
+
+function getMapDashOffline() {
+    var latLong;
+    var urlImg;
+    var vFlag = 0;
+    var str_simbols = '';
+    var countRed = 0;
+    var countYel = 0;
+    var countGre = 0;
+    var countGra = 0;
+
+    var gps = [];
+    var recorridos = [];
+
+    /*Limpia marcas del mapa*/
+    for(i=0; i<markerDash.length; i++){
+        markerDash[i].setMap(null);     
+    }
+    markerDash = [];
+    recorridoDash.setMap(null);
+    recorridoPath = [];
+    markIni.setMap(null);
+    markFin.setMap(null);
+
+
+    $.mobile.loading('show');
+
+    if(vGtipomap == 0){
+        db.transaction(function(cmd2){
+            cmd2.executeSql("SELECT * FROM gps_actual", [], function (cmd2, results) {
+                var len = results.rows.length;
+                for(i=0;i<len; i++){
+                    gps.push({user:results.rows.item(i).user, lat:results.rows.item(i).lat, lng:results.rows.item(i).lng, fech:results.rows.item(i).fecha, flag_ini:results.rows.item(i).flag_ini, flag_plan:results.rows.item(i).flag_plan});
+                }
+                $("#vSelUsers").empty();
+                for(j=0;j<gps.length; j++){
+                    if (j==0){
+                        $('#vSelUsers').append('<option value="' + gps[j].user + '" selected="selected">'+ gps[j].user +'</option>');
+                    }else{
+                        $('#vSelUsers').append('<option value="' + gps[j].user + '">'+ gps[j].user +'</option>');
+                    }
+                }
+                $('#vSelUsers').selectmenu("refresh");  
+
+
+                for(i=0;i<gps.length; i++){
+
+                    if(vGindicadorMap==0){
+                        vFlag = parseInt(gps[i].flag_ini);
+                    }else{
+                        vFlag = parseInt(gps[i].flag_plan);
+                    }
+
+                    switch(vFlag)
+                    {
+                        case 1:
+                            urlImg = 'img/p_red.png';
+                            countRed ++;
+                        break;
+                        case 2:
+                            urlImg = 'img/p_yellow.png';
+                            countYell ++;
+                        break;
+                        case 3:
+                            urlImg = 'img/p_green.png';
+                            countGre ++;
+                        break;
+                        default:
+                            urlImg = 'img/p_gray.png';
+                            countGra ++;
+                        break;
+
+                    }
+                    latLong = new google.maps.LatLng(gps[i].lat, gps[i].lng);
+                    var Tmarker = new google.maps.Marker({
+                        position: latLong,
+                        title: gps[i].user,
+                        icon:urlImg
+                    });
+                    markerDash.push(Tmarker);
+                }
+
+                for(i=0; i<markerDash.length; i++){
+                    markerDash[i].setMap(mapDash);     
+                }
+                latLong = new google.maps.LatLng(14.618086, -86.959082);
+                mapDash.setCenter(latLong);
+
+                if(vGindicadorMap == 0){
+                    str_simbols +='<div class=\"ui-grid-c\">';
+                    str_simbols +='            <div class=\"ui-block-a\">';
+                    str_simbols +='                <center><img src=\"img/map-marker-gray.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">No Marca</label><label style=\"font-size:0.8em\">'+ countGra +'</label>';
+                    str_simbols +='            </div>';
+                    str_simbols +='            <div class=\"ui-block-b\">';
+                    str_simbols +='                <center><img src=\"img/map-marker-red.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">Mrc Fuera</label><label style=\"font-size:0.8em\">'+ countRed +'</label>';
+                    str_simbols +='            </div>';
+                    str_simbols +='            <div class=\"ui-block-c\">';
+                    str_simbols +='                <center><img src=\"img/map-marker-yellow.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">Mrc Tarde</label><label style=\"font-size:0.8em\">'+ countYel +'</label>';
+                    str_simbols +='            </div>';
+                    str_simbols +='            <div class=\"ui-block-d\">';
+                    str_simbols +='                <center><img src=\"img/map-marker-green.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">Mrc a Tiempo</label><label style=\"font-size:0.8em\">'+ countGre +'</label>';
+                    str_simbols +='           </div>';
+                    str_simbols +='       </div>';
+                }else{
+                    str_simbols +='<div class=\"ui-grid-b\">';
+                    str_simbols +='           <div class=\"ui-block-b\">';
+                    str_simbols +='               <center><img src=\"img/map-marker-red.png\" width=\"30px\" />';
+                    str_simbols +='                   <label style=\"font-size:0.8em\">No Prsp. No Mov.</label><label style=\"font-size:0.8em\">'+ countRed +'</label>';
+                    str_simbols +='            </div>';
+                    str_simbols +='           <div class=\"ui-block-c\">';
+                    str_simbols +='               <center><img src=\"img/map-marker-yellow.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">Mov. no Prsp.</label><label style=\"font-size:0.8em\">'+ countYel +'</label>';
+                    str_simbols +='           </div>';
+                    str_simbols +='          <div class=\"ui-block-d\">';
+                    str_simbols +='              <center><img src=\"img/map-marker-green.png\" width=\"30px\" />';
+                    str_simbols +='                   <label style=\"font-size:0.8em\">Mov. y/o Prsp.</label><label style=\"font-size:0.8em\">'+ countGre +'</label>';
+                    str_simbols +='           </div>';
+                    str_simbols +='      </div>';
+                }
+
+                $("#mapSimbologia").html(str_simbols);   
+                $("#mapSimbologia").trigger('refresh'); 
+
+                $.mobile.loading('hide');
+
+            });
+        });
+
+    }else if(vGtipomap==1){
+        var userRec = $("#vSelUsers").val();
+
+        db.transaction(function(cmd2){
+            cmd2.executeSql("SELECT * FROM gps_recorridos where user = ?", [userRec], function (cmd2, results) {
+                var len = results.rows.length;
+                for(i=0;i<len; i++){
+                    recorridos.push({user:results.rows.item(i).user, lat:results.rows.item(i).lat, lng:results.rows.item(i).lng});
+                }
+
+                //console.log(userRec);
+                for(i=0;i<recorridos.length; i++){
+                    if(recorridos[i].user.toUpperCase() == userRec.toUpperCase()){
+                        recorridoPath.push({lat: parseFloat(recorridos[i].lat), lng:parseFloat(recorridos[i].lng)});    
+                    }                    
+                }
+                //console.log(recorridoPath);
+                recorridoDash = new google.maps.Polyline({
+                    path:recorridoPath,
+                    geodesic: true,
+                    strokeOpacity:0.8,
+                    strokeColor: '#FF0000'
+                });
+
+                var latLong = new google.maps.LatLng(recorridoPath[0].lat, recorridoPath[0].lng);
+                markIni = new google.maps.Marker({
+                    position: latLong,
+                    icon: 'img/markini.png'
+                });
+
+                latLong = new google.maps.LatLng(recorridoPath[recorridoPath.length-1].lat, recorridoPath[recorridoPath.length-1].lng);
+                markFin = new google.maps.Marker({
+                    position: latLong,
+                    icon: 'img/markfin.png'
+                });
+
+                markIni.setMap(mapDash);
+                markFin.setMap(mapDash);
+                recorridoDash.setMap(mapDash);
+                mapDash.setCenter(latLong);
+
+                if(vGindicadorMap == 0){
+                    str_simbols +='<div class=\"ui-grid-c\">';
+                    str_simbols +='            <div class=\"ui-block-a\">';
+                    str_simbols +='                <center><img src=\"img/map-marker-gray.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">No Marca</label><label style=\"font-size:0.8em\">'+ countGra +'</label>';
+                    str_simbols +='            </div>';
+                    str_simbols +='            <div class=\"ui-block-b\">';
+                    str_simbols +='                <center><img src=\"img/map-marker-red.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">Mrc Fuera</label><label style=\"font-size:0.8em\">'+ countRed +'</label>';
+                    str_simbols +='            </div>';
+                    str_simbols +='            <div class=\"ui-block-c\">';
+                    str_simbols +='                <center><img src=\"img/map-marker-yellow.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">Mrc Tarde</label><label style=\"font-size:0.8em\">'+ countYel +'</label>';
+                    str_simbols +='            </div>';
+                    str_simbols +='            <div class=\"ui-block-d\">';
+                    str_simbols +='                <center><img src=\"img/map-marker-green.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">Mrc a Tiempo</label><label style=\"font-size:0.8em\">'+ countGre +'</label>';
+                    str_simbols +='           </div>';
+                    str_simbols +='       </div>';
+                }else{
+                    str_simbols +='<div class=\"ui-grid-b\">';
+                    str_simbols +='           <div class=\"ui-block-b\">';
+                    str_simbols +='               <center><img src=\"img/map-marker-red.png\" width=\"30px\" />';
+                    str_simbols +='                   <label style=\"font-size:0.8em\">No Prsp. No Mov.</label><label style=\"font-size:0.8em\">'+ countRed +'</label>';
+                    str_simbols +='            </div>';
+                    str_simbols +='           <div class=\"ui-block-c\">';
+                    str_simbols +='               <center><img src=\"img/map-marker-yellow.png\" width=\"30px\" />';
+                    str_simbols +='                    <label style=\"font-size:0.8em\">Mov. no Prsp.</label><label style=\"font-size:0.8em\">'+ countYel +'</label>';
+                    str_simbols +='           </div>';
+                    str_simbols +='          <div class=\"ui-block-d\">';
+                    str_simbols +='              <center><img src=\"img/map-marker-green.png\" width=\"30px\" />';
+                    str_simbols +='                   <label style=\"font-size:0.8em\">Mov. y/o Prsp.</label><label style=\"font-size:0.8em\">'+ countGre +'</label>';
+                    str_simbols +='           </div>';
+                    str_simbols +='      </div>';
+                }
+
+                $("#mapSimbologia").html(str_simbols);   
+                $("#mapSimbologia").trigger('refresh'); 
+                $.mobile.loading('hide');
+
+            });
+        });
+        
+    }    
+}
+

@@ -23,10 +23,10 @@ d -000000*/
 	border-radius:5px;
 	margin-bottom: 15px;
 }
-#btn_menu:hover{
+
+.hamburger:hover{
 	 
-	/*background-color: #2E2E2E;*/	
-	background: rgba(255,255,255,0.2);
+	opacity: 1;
 	cursor:pointer;
 }
 
@@ -39,9 +39,11 @@ d -000000*/
   width: 55px;
   height: 55px;
   margin-left: 20px;
-  background: transparent;
+  background: gray;
   border:none;
-  opacity:0.8;
+  opacity:0.7;
+  border-radius:50%;
+  box-shadow: 1px -1px 12px;
 }
 
 .map_tracking{
@@ -201,7 +203,7 @@ d -000000*/
 }
 
 #dvMenu{
-	background-color:#0B0B61;     /*#08088A; /*; #585858;*/
+	background-color:#0B0B61;     /*#08088A; /*; #585858;*/ 
 	color:#D8D8D8;
 }
 
@@ -247,12 +249,39 @@ d -000000*/
 	border-bottom-right-radius: inherit;
 }
 
-
 #dvMenu ul li a{
 	font-weight: normal;
 	font-size: 1em;
 }
 
+#dvMenu ul li:hover .lbar {
+	background-color: green;
+}
+
+#dvMenu ul li:hover .ui-btn {
+	color:green;
+	background-color: red;
+}
+
+.lbar {
+	position: absolute;
+	width: 5px;
+	height: 95%;
+	background-color: gray;
+}
+
+.btn_acept{
+	background-color: green;
+	color:white;
+}
+
+.btn_acept:hover{
+	background-color: blue;
+}
+
+#sbMenuForms .btnH:hover{
+	background-color: #A9BCF5;
+}
 
 /* Show priority 1 at 320px (20em x 16px) */
 @media screen and (min-width: 20em) {
