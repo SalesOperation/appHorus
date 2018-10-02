@@ -10,7 +10,7 @@ var vLng = 0;
 //var ws_url = 'http://localhost/ws_so/service_so.php'; 
 var ws_url = 'https://190.4.63.207/ws_so/service_so.php';
 
-var vDatosUsuario ={"user":"", "login":"", "name":"", "phone":0, "email":"na", "job":"na", "id_dms":0};
+var vDatosUsuario ={"user":"", "login":"", "name":"", "phone":0, "email":"na", "job":"na", "id_dms":0, "perfil":0};
 var vTitle ="SO - Horus";
 var map1;
 var mapDash;
@@ -29,6 +29,8 @@ var markerDash = [];
 var markIni;
 var markFin;
 var markHorus;
+var infoW;
+var infoW2;
 var recorridoPath = [];
 var recorridoDash;
 var vGindicadorMap = 0;
@@ -730,6 +732,9 @@ function initMaps(lat, lng){
     map1 = new google.maps.Map(document.getElementById("mapHorus"), mapOptions);
     mapDash = new google.maps.Map(document.getElementById("dvMapDash"), mapOptions);  
 
+    infoW = new google.maps.InfoWindow({ content: '-'});
+    infoW2 = new google.maps.InfoWindow({ content: '-'});
+
     recorridoDash = new google.maps.Polyline({
                     path:[{lat:0, lng:0}],
                     geodesic: true,
@@ -997,13 +1002,17 @@ function getMapDash() {
                     break;
 
                 }
+
                 latLong = new google.maps.LatLng(result.gps[i].lat.replace(",", "."), result.gps[i].lng.replace(",", "."));
-                var Tmarker = new google.maps.Marker({
-                    position: latLong,
-                    title: result.gps[i].user,
-                    icon:urlImg
-                });
-                markerDash.push(Tmarker);
+                var jsn1 = {user:result.gps[i].user, fech:getFechFormated(result.gps[i].fech)};
+                var vTbl;
+                vTbl =  '<table border="0" cellspacing="1">';
+                vTbl += '<tr><td><b>'+ jsn1.user +'</b></td></tr>';
+                vTbl += '<tr><td>'+ jsn1.fech +'</tr>';
+                vTbl += '</table>';
+
+                drawMark(latLong, result.gps[i].user, vTbl, urlImg, mapDash)
+
             }
             
 
@@ -1025,27 +1034,45 @@ function getMapDash() {
                 });
 
                 var latLong = new google.maps.LatLng(recorridoPath[0].lat, recorridoPath[0].lng);
+                var vTbl;
+                vTbl =  '<table border="0" cellspacing="1">';
+                vTbl += '<tr><td><b>Inicio</b></td></tr>';
+                vTbl += '<tr><td><b>'+ userRec +'</b></td></tr>';
+                vTbl += '<tr><td>'+ getFechFormated(result.recorridos[0].fech) +'</tr>';
+                vTbl += '</table>';
+
                 markIni = new google.maps.Marker({
                     position: latLong,
                     icon: 'img/markini.png'
                 });
-
-                latLong = new google.maps.LatLng(recorridoPath[recorridoPath.length-1].lat, recorridoPath[recorridoPath.length-1].lng);
-                markFin = new google.maps.Marker({
-                    position: latLong,
-                    icon: 'img/markfin.png'
+                markIni.addListener('click', function(){
+                    showInforW(markIni, vTbl, mapDash);
                 });
 
-                markIni.setMap(mapDash);
-                markFin.setMap(mapDash);
-                recorridoDash.setMap(mapDash);
-                mapDash.setCenter(latLong);
+                latLong = new google.maps.LatLng(recorridoPath[recorridoPath.length-1].lat, recorridoPath[recorridoPath.length-1].lng);
+                setTimeout(function(){
+                    var vTbl =  '<table border="0" cellspacing="1">';
+                    vTbl += '<tr><td><b>Fin</b></td></tr>';
+                    vTbl += '<tr><td><b>'+ userRec +'</b></td></tr>';
+                    vTbl += '<tr><td>'+ getFechFormated(result.recorridos[result.recorridos.length-1].fech)  +'</tr>';
+                    vTbl += '</table>';
+                    markFin = new google.maps.Marker({
+                        position: latLong,
+                        icon: 'img/markfin.png'
+                    });
+                    markFin.addListener('click', function(){
+                        showInforW2(markFin, vTbl, mapDash);
+                    });
 
+                    markIni.setMap(mapDash);
+                    markFin.setMap(mapDash);
+                    recorridoDash.setMap(mapDash);
+                    mapDash.setCenter(latLong);
+                },100);              
             }else{
-                for(i=0; i<markerDash.length; i++){
-                    markerDash[i].setMap(mapDash);     
+                for(i=0; i<markerDash.length; i++){                       
+                    markerDash[i].setMap(mapDash); 
                 }
-                
                 latLong = new google.maps.LatLng(14.618086, -86.959082);
                 mapDash.setCenter(latLong);
                 mapDash.setZoom(7); 
@@ -1099,6 +1126,18 @@ function getMapDash() {
     //map.setCenter(marker[0].getPosition());
 }
 
+function drawMark(vLatLng, vTitle, vjsn, vImg, vmap){
+    var Tmarker = new google.maps.Marker({
+            position: vLatLng,
+            title: vTitle,
+            icon:vImg
+        });
+
+        Tmarker.addListener('click', function(){
+            showInforW(Tmarker, vjsn, vmap);
+        });
+        markerDash.push(Tmarker); 
+}
 
 function getMapDashOffline() {
     var latLong;
@@ -1173,12 +1212,19 @@ function getMapDashOffline() {
 
                     }
                     latLong = new google.maps.LatLng(gps[i].lat, gps[i].lng);
-                    var Tmarker = new google.maps.Marker({
+                    /*var Tmarker = new google.maps.Marker({
                         position: latLong,
                         title: gps[i].user,
                         icon:urlImg
                     });
-                    markerDash.push(Tmarker);
+                    markerDash.push(Tmarker);*/
+                    var jsn1 = {user:gps[i].user, fech:getFechFormated(gps[i].fech)} ;
+                    var vTbl;
+                    vTbl =  '<table border="0" cellspacing="1">';
+                    vTbl += '<tr><td><b>'+ jsn1.user +'</b></td></tr>';
+                    vTbl += '<tr><td>'+ jsn1.fech +'</tr>';
+                    vTbl += '</table>';
+                    drawMark(latLong, gps[i].user, vTbl, urlImg, mapDash)
                 }
 
                 for(i=0; i<markerDash.length; i++){
@@ -1235,7 +1281,7 @@ function getMapDashOffline() {
         var userRec = $("#vSelUsers").val();
 
         db.transaction(function(cmd2){
-            cmd2.executeSql("SELECT * FROM gps_recorridos where user = ?", [userRec], function (cmd2, results) {
+            cmd2.executeSql("SELECT * FROM gps_recorridos where user = ? order by fecha", [userRec], function (cmd2, results) {
                 var len = results.rows.length;
                 for(i=0;i<len; i++){
                     recorridos.push({user:results.rows.item(i).user, lat:results.rows.item(i).lat, lng:results.rows.item(i).lng});
@@ -1256,21 +1302,58 @@ function getMapDashOffline() {
                 });
 
                 var latLong = new google.maps.LatLng(recorridoPath[0].lat, recorridoPath[0].lng);
+                var vTbl;
+                    vTbl =  '<table border="0" cellspacing="1">';
+                    vTbl += '<tr><td><b>Inicio</b></td></tr>';
+                    vTbl += '<tr><td><b>'+ userRec +'</b></td></tr>';
+                    vTbl += '<tr><td>'+ getFechFormated(results.rows.item(0).fecha) +'</tr>';
+                    vTbl += '</table>';
+
                 markIni = new google.maps.Marker({
                     position: latLong,
                     icon: 'img/markini.png'
                 });
+                markIni.addListener('click', function(){
+                    showInforW(markIni, vTbl, mapDash);
+                });
 
                 latLong = new google.maps.LatLng(recorridoPath[recorridoPath.length-1].lat, recorridoPath[recorridoPath.length-1].lng);
+                setTimeout(function(){
+                    var vTbl =  '<table border="0" cellspacing="1">';
+                    vTbl += '<tr><td><b>Fin</b></td></tr>';
+                    vTbl += '<tr><td><b>'+ userRec +'</b></td></tr>';
+                    vTbl += '<tr><td>'+ getFechFormated(results.rows.item(len-1).fecha)  +'</tr>';
+                    vTbl += '</table>';
+                    markFin = new google.maps.Marker({
+                        position: latLong,
+                        icon: 'img/markfin.png'
+                    });
+                    markFin.addListener('click', function(){
+                        showInforW2(markFin, vTbl, mapDash);
+                    });
+
+                    markIni.setMap(mapDash);
+                    markFin.setMap(mapDash);
+                    recorridoDash.setMap(mapDash);
+                    mapDash.setCenter(latLong);
+                }, 100);     
+                /*vTbl =  '<table border="0" cellspacing="1">';
+                    vTbl += '<tr><td><b>Fin</b></td></tr>';
+                    vTbl += '<tr><td><b>'+ userRec +'</b></td></tr>';
+                    vTbl += '<tr><td>'+ getFechFormated(results.rows.item(len-1).fecha) +'</tr>';
+                    vTbl += '</table>';
                 markFin = new google.maps.Marker({
                     position: latLong,
                     icon: 'img/markfin.png'
+                });
+                markFin.addListener('click', function(){
+                    showInforW2(markFin, vTbl, mapDash);
                 });
 
                 markIni.setMap(mapDash);
                 markFin.setMap(mapDash);
                 recorridoDash.setMap(mapDash);
-                mapDash.setCenter(latLong);
+                mapDash.setCenter(latLong);*/
 
                 if(vGindicadorMap == 0){
                     str_simbols +='<div class=\"ui-grid-c\">';
@@ -1318,3 +1401,28 @@ function getMapDashOffline() {
     }    
 }
 
+function showInforW(vMark, vHtml, vMapx){
+
+    infoW.setContent(vHtml);
+    infoW.open(vMapx, vMark); 
+}
+
+function showInforW2(vMark, vDatosHTML, vMapx){
+    infoW2.setContent(vDatosHTML);
+    infoW2.open(vMapx, vMark); 
+}
+
+function getFechFormated(vNumFech){
+    var vReturn;
+    var vAnio = vNumFech.toString().substr(0,4);
+    var vMesNum = vNumFech.toString().substr(4,2);
+    var vDia = vNumFech.toString().substr(6,2);
+    var vHh = vNumFech.toString().substr(8,2);
+    var vMn = vNumFech.toString().substr(10,2);
+
+    vStrMes = getMonthName(parseInt(vMesNum));
+
+    vReturn = vAnio + '-' + vStrMes + '-'+ vDia + ' ' + vHh +':'+ vMn;
+
+    return  vReturn;
+}
