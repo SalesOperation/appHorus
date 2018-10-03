@@ -36,6 +36,10 @@ var recorridoDash;
 var vGindicadorMap = 0;
 var vGtipomap = 0;
 
+var lat1, lng1;
+var vDistance = 0;
+var vFechIniHorus;
+
 //var webSvrListener =  setInterval(function(){ consultSVR()}, 59000);
 var pagRoot = [{id:0, back:0},
                 {id:1, back:0},
@@ -533,6 +537,7 @@ function getMapLocation() {
 }
 
 function onSuccess(position){
+    var vD = 0;
     d = new Date();
     h = '00';
     m = '00';
@@ -562,11 +567,38 @@ function onSuccess(position){
 
 
     saveGPS(getYMD(0) + h + m + sc, position.coords.latitude, position.coords.longitude, vDatosUsuario.user); 
-    getMap(position.coords.latitude, position.coords.longitude);
 
-    vQre = 'INSERT INTO records (fecha, lat, lng, user) VALUES(\'' + getYMD(0) + h + m + sc + '\',';
-    vQre += position.coords.latitude + ',' + position.coords.longitude + ',\''+ vDatosUsuario.user + '\')';
-    //ejecutaSQL(vQre, 0);   
+    //vQre = 'INSERT INTO records (fecha, lat, lng, user) VALUES(\'' + getYMD(0) + h + m + sc + '\',';
+    //vQre += position.coords.latitude + ',' + position.coords.longitude + ',\''+ vDatosUsuario.user + '\')';
+    vQre = 'DELETE FROM tbl_kmtrs';
+    ejecutaSQL(vQre, 0);
+
+    setTimeout(function(){
+
+        if(lat1 != 0 && lng1 !=0){
+            vD = getDistanceFromLatLonInKm(lat1, lng1, vLat,vLng);
+            console.log(vD);
+            vDistance += parseFloat(vD);
+        }else{
+            vDistance = 0;
+        }
+        
+        vQre = 'insert into tbl_kmtrs (user, fech, lat1, lng1, kmtr) ';
+        vQre += 'values (\''+ vDatosUsuario.user +'\',' + (getYMD(0) + ''+ getHMS()) +',' + vLat +',' + vLng +','+ vDistance +')';
+        ejecutaSQL(vQre, 0);
+
+        lat1 = vLat;
+        lng1 = vLng;
+
+        getMap(position.coords.latitude, position.coords.longitude);
+        if(vFechIniHorus != 0){
+            $("#dvHoraini").html('<b>Hora Inicio</b><br/>' + getFechFormated(vFechIniHorus));
+        }else{
+            $("#dvHoraini").html('<b>Hora Inicio</b><br/>-');
+        }        
+        $("#kmts_num").html('<h2>' + vDistance.toFixed(2) + ' Kmts.</h2>');
+
+    }, 100);   
     
     
     //$("#test").append(d.getHours() +':'+ d.getMinutes() + '<br />' + position.coords.latitude + '/' + position.coords.longitude + '<br />');
@@ -581,6 +613,23 @@ function onErrorF(error){
 function tracking(){
 
     if(vFlagTracking ==  false){
+        db.transaction(function(cmd2){
+            cmd2.executeSql("SELECT * FROM tbl_kmtrs", [], function (cmd2, results) {
+                var len = results.rows.length;
+                if(len>0){
+                    lat1 = results.rows.item(0).lat1;
+                    lng1 = results.rows.item(0).lng1;
+                    vDistance = results.rows.item(0).kmtr;
+                    vFechIniHorus = results.rows.item(0).fech;
+                }else{
+                    lat1 = 0;
+                    lng1 = 0;
+                    vDistance = 0;
+                    vFechIniHorus = getYMD(0) +''+ getHMS();
+                }
+            });
+        });
+
         cordova.plugins.backgroundMode.setEnabled(true); 
         clearInterval(vIntervalGeo);
         console.log('starting..');
@@ -597,6 +646,8 @@ function tracking(){
         clearInterval(vIntervalGeo);
         vFlagTracking = false;
         cordova.plugins.backgroundMode.setEnabled(false); 
+        vQre = 'DELETE FROM tbl_kmtrs';
+        ejecutaSQL(vQre, 0);
     }
 }
 
@@ -889,16 +940,21 @@ function getFileToServer(vFileId){
 /* calcular distancia entre 2 coordenadas en Kmts*/
 function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
   var R = 6371; // Radius of the earth in km
-  var dLat = deg2rad(lat2-lat1);  // deg2rad below
-  var dLon = deg2rad(lon2-lon1); 
+  var dLat = deg2rad(lat2-lat1);  // deltaphi
+  var dLon = deg2rad(lon2-lon1);  // deltalambda
+
+  var phi1 = deg2rad(lat1);
+  var phi2 = deg2rad(lat2)
   var a = 
     Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.cos(phi1) * Math.cos(phi2) * 
     Math.sin(dLon/2) * Math.sin(dLon/2)
     ; 
+
   var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
   var d = R * c; // Distance in km
-  return d;
+
+  return d.toFixed(2);
 }
 
 function deg2rad(deg) {
