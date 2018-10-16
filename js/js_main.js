@@ -1114,7 +1114,7 @@ function getMapDash() {
                     vTbl += '</table>';
                     markFin = new google.maps.Marker({
                         position: latLong,
-                        icon: 'img/markfin.png'
+                        icon: 'img/markfin2.png'
                     });
                     markFin.addListener('click', function(){
                         showInforW2(markFin, vTbl, mapDash);
@@ -1382,7 +1382,7 @@ function getMapDashOffline() {
                     vTbl += '</table>';
                     markFin = new google.maps.Marker({
                         position: latLong,
-                        icon: 'img/markfin.png'
+                        icon: 'img/markfin2.png'
                     });
                     markFin.addListener('click', function(){
                         showInforW2(markFin, vTbl, mapDash);
@@ -1400,7 +1400,7 @@ function getMapDashOffline() {
                     vTbl += '</table>';
                 markFin = new google.maps.Marker({
                     position: latLong,
-                    icon: 'img/markfin.png'
+                    icon: 'img/markfin2.png'
                 });
                 markFin.addListener('click', function(){
                     showInforW2(markFin, vTbl, mapDash);
