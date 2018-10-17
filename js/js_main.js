@@ -1046,7 +1046,7 @@ function getMapDash() {
                     break;
                     case 2:
                         urlImg = 'img/p_yellow.png';
-                        countYell ++;
+                        countYel ++;
                     break;
                     case 3:
                         urlImg = 'img/p_green.png';
@@ -1255,7 +1255,7 @@ function getMapDashOffline() {
                         break;
                         case 2:
                             urlImg = 'img/p_yellow.png';
-                            countYell ++;
+                            countYel ++;
                         break;
                         case 3:
                             urlImg = 'img/p_green.png';
